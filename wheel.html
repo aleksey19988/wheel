@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Колесо удачи 🎡</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; padding: 20px;
+            font-family: 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: #fff; text-align: center;
+        }
+        h1 { font-weight: 700; margin-bottom: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        p.sub { opacity: 0.9; margin-bottom: 25px; }
+        .wheel-wrapper {
+            position: relative;
+            width: 100%; max-width: 420px; aspect-ratio: 1/1;
+            margin: 0 auto;
+        }
+        canvas { width: 100%; height: auto; }
+        /* Стрелка */
+        .pointer {
+            position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+            width: 0; height: 0; border-left: 18px solid transparent; border-right: 18px solid transparent;
+            border-top: 28px solid #fff; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); z-index: 2;
+        }
+        #spinBtn {
+            margin-top: 25px; padding: 16px 48px; font-size: 18px; font-weight: 700;
+            border: none; border-radius: 50px; background: #fff; color: #764ba2;
+            cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.25); transition: transform .2s;
+        }
+        #spinBtn:hover:not(:disabled) { transform: translateY(-2px); }
+        #spinBtn:disabled { opacity: .6; cursor: default; }
+        #result {
+            margin-top: 20px; font-size: 22px; font-weight: 700; min-height: 30px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        @media(max-width: 480px){
+            h1 { font-size: 22px; }
+            #spinBtn { width: 90%; padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<h1>Испытайте удачу! 🎉</h1>
+<p class="sub">Нажмите кнопку, чтобы крутить колесо</p>
+
+<div class="wheel-wrapper">
+    <div class="pointer"></div>
+    <canvas id="wheelCanvas" width="500" height="500"></canvas>
+</div>
+
+<button id="spinBtn">КРУТИТЬ</button>
+<div id="result"></div>
+
+<!-- Зависимости -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/1.20.3/TweenMax.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/zarocknz/javascript-winwheel@2.7/Winwheel.min.js"></script>
+
+<script>
+    // --- CONFIG ---
+    // Вставьте сюда новый URL вашего GAS-приложения
+    const GAS_URL = 'https://script.google.com/macros/s/ВАШ_НОВЫЙ_СКРИПТ/exec';
+    const prizes = [
+        'Скидка 5%', 'Скидка 10%', 'Скидка 15%', 'Скидка 20%',
+        'Бесплатная доставка', 'Подарок', '+100 бонусов', 'Повезёт в следующий раз'
+    ];
+    const colors = ['#FF6384','#36A2EB','#FFCE56','#4BC0C0','#9966FF','#FF9F40','#7CFC00','#EA4335'];
+
+    // Получаем телефон из URL, который передал лендинг
+    const urlParams = new URLSearchParams(window.location.search);
+    const userPhone = urlParams.get('phone') || 'unknown';
+
+    // --- WHEEL INIT ---
+    const wheel = new Winwheel({
+        canvasId: 'wheelCanvas',
+        numSegments: prizes.length,
+        outerRadius: 220,
+        innerRadius: 40,
+        textFontSize: 15,
+        textOrientation: 'vertical',
+        textAlignment: 'outer',
+        segments: prizes.map((txt, i) => ({
+            fillStyle: colors[i % colors.length],
+            text: txt
+        })),
+        animation: {
+            type: 'spinToStop',
+            duration: 5,        // секунд
+            spins: 8,           // количество оборотов
+            callbackFinished: onPrize,
+            callbackSound: playTick,
+            soundTrigger: 'pin'
+        },
+        pins: {
+            number: 16,
+            fillStyle: '#ffffff',
+            outerRadius: 6,
+            margin: -5
+        }
+    });
+
+    let tickSound = new Audio(); // можно вставить base64 тик, пока оставим без звука
+    function playTick() {
+        // место для звука тика
+    }
+
+    const btn = document.getElementById('spinBtn');
+    const resultDiv = document.getElementById('result');
+
+    btn.addEventListener('click', () => {
+        btn.disabled = true;
+        resultDiv.textContent = '';
+        // Сброс и запуск
+        wheel.stopAnimation(false);
+        wheel.rotationAngle = 0;
+        wheel.draw();
+        wheel.startAnimation();
+    });
+
+    function onPrize(indicatedSegment) {
+        const prize = indicatedSegment.text;
+        resultDiv.innerHTML = `🎁 Ваш приз:<br><span style="font-size:28px">${prize}</span>`;
+
+        // Отправляем результат в Telegram через GAS (fire-and-forget)
+        const body = new URLSearchParams({ phone: userPhone, prize: prize });
+        fetch(GAS_URL, { method: 'POST', body: body, mode: 'no-cors' })
+            .catch(() => {});
+    }
+</script>
+</body>
+</html>
