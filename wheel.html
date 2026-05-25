@@ -6,43 +6,103 @@
     <title>Колесо удачи 🎡</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        * { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            margin: 0; padding: 20px;
+            margin: 0;
+            padding: 20px;
             font-family: 'Roboto', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            color: #fff; text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            text-align: center;
         }
-        h1 { font-weight: 700; margin-bottom: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-        p.sub { opacity: 0.9; margin-bottom: 25px; }
+
+        h1 {
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        p.sub {
+            opacity: 0.9;
+            margin-bottom: 25px;
+        }
+
         .wheel-wrapper {
             position: relative;
-            width: 100%; max-width: 420px; aspect-ratio: 1/1;
+            width: 100%;
+            max-width: 420px;
+            aspect-ratio: 1/1;
             margin: 0 auto;
         }
-        canvas { width: 100%; height: auto; }
+
+        canvas {
+            width: 100%;
+            height: auto;
+        }
+
         /* Стрелка */
         .pointer {
-            position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
-            width: 0; height: 0; border-left: 18px solid transparent; border-right: 18px solid transparent;
-            border-top: 28px solid #fff; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); z-index: 2;
+            position: absolute;
+            top: 50%;
+            right: 10px;
+            transform: translateY(-50%);
+            width: 0;
+            height: 0;
+            border-top: 18px solid transparent;
+            border-bottom: 18px solid transparent;
+            border-right: 28px solid #fff; /* стрелка смотрит ВЛЕВО — на колесо */
+            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+            z-index: 2;
         }
+
         #spinBtn {
-            margin-top: 25px; padding: 16px 48px; font-size: 18px; font-weight: 700;
-            border: none; border-radius: 50px; background: #fff; color: #764ba2;
-            cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.25); transition: transform .2s;
+            margin-top: 25px;
+            padding: 16px 48px;
+            font-size: 18px;
+            font-weight: 700;
+            border: none;
+            border-radius: 50px;
+            background: #fff;
+            color: #764ba2;
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+            transition: transform .2s;
         }
-        #spinBtn:hover:not(:disabled) { transform: translateY(-2px); }
-        #spinBtn:disabled { opacity: .6; cursor: default; }
+
+        #spinBtn:hover:not(:disabled) {
+            transform: translateY(-2px);
+        }
+
+        #spinBtn:disabled {
+            opacity: .6;
+            cursor: default;
+        }
+
         #result {
-            margin-top: 20px; font-size: 22px; font-weight: 700; min-height: 30px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            margin-top: 20px;
+            font-size: 22px;
+            font-weight: 700;
+            min-height: 30px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
-        @media(max-width: 480px){
-            h1 { font-size: 22px; }
-            #spinBtn { width: 90%; padding: 16px; }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 22px;
+            }
+
+            #spinBtn {
+                width: 90%;
+                padding: 16px;
+            }
         }
     </style>
 </head>
@@ -52,7 +112,7 @@
 <p class="sub">Нажмите кнопку, чтобы крутить колесо</p>
 
 <div class="wheel-wrapper">
-    <div class="pointer"></div>
+    <div class="pointer"></div> <!-- указатель теперь справа -->
     <canvas id="wheelCanvas" width="500" height="500"></canvas>
 </div>
 
@@ -64,17 +124,37 @@
 <script src="https://cdn.jsdelivr.net/gh/zarocknz/javascript-winwheel@2.7/Winwheel.min.js"></script>
 
 <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const userPhone = urlParams.get('phone') || 'unknown';
+    const phoneClean = userPhone.replace(/\D/g, '');
+
+    // Если номер не передан или некорректный — убираем колесо и показываем ошибку
+    if (userPhone === 'unknown' || phoneClean.length < 10) {
+        document.body.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;text-align:center;padding:20px;">
+      <h2>⚠️ Ошибка</h2>
+      <p style="margin-bottom:20px;">Сначала введите номер телефона на главной странице.</p>
+    </div>`;
+        throw new Error('Invalid phone'); // останавливаем дальнейший JS
+    }
+
     // --- CONFIG ---
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbzz08N07nNBuklmPChEoG_8SKiISLRDDNdROAYraen65YMERkstyqgps_LzZii6ThRP/exec';
     const prizes = [
-        'Скидка 5%', 'Скидка 10%', 'Скидка 15%', 'Скидка 20%',
-        'Бесплатная доставка', 'Подарок', '+100 бонусов', 'Повезёт в следующий раз'
+        '160 000₽',
+        '140 000₽',
+        '70 000₽',
+        '80 000₽',
+        '110 000₽',
+        '20 000₽',
+        '90 000₽',
+        '60 000₽',
+        'Подписка',
+        '50 000₽',
+        '130 000₽',
+        '100 000₽',
     ];
-    const colors = ['#FF6384','#36A2EB','#FFCE56','#4BC0C0','#9966FF','#FF9F40','#7CFC00','#EA4335'];
-
-    // Получаем телефон из URL, который передал лендинг
-    const urlParams = new URLSearchParams(window.location.search);
-    const userPhone = urlParams.get('phone') || 'unknown';
+    const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#7CFC00', '#EA4335'];
 
     // --- WHEEL INIT ---
     const wheel = new Winwheel({
@@ -83,22 +163,23 @@
         outerRadius: 220,
         innerRadius: 40,
         textFontSize: 15,
-        textOrientation: 'vertical',
+        textOrientation: 'horizontal',
         textAlignment: 'outer',
+        pointerAngle: 90,
         segments: prizes.map((txt, i) => ({
             fillStyle: colors[i % colors.length],
             text: txt
         })),
         animation: {
             type: 'spinToStop',
-            duration: 5,        // секунд
-            spins: 8,           // количество оборотов
+            duration: 5,
+            spins: 8,
             callbackFinished: onPrize,
             callbackSound: playTick,
             soundTrigger: 'pin'
         },
         pins: {
-            number: 16,
+            number: prizes.length,
             fillStyle: '#ffffff',
             outerRadius: 6,
             margin: -5
@@ -116,21 +197,24 @@
     btn.addEventListener('click', () => {
         btn.disabled = true;
         resultDiv.textContent = '';
-        // Сброс и запуск
         wheel.stopAnimation(false);
-        wheel.rotationAngle = 0;
+        wheel.rotationAngle = -90; // начальное положение — справа
         wheel.draw();
         wheel.startAnimation();
     });
 
     function onPrize(indicatedSegment) {
-        const prize = indicatedSegment.text;
+        let prize = indicatedSegment.text;
+        if (prize.toLowerCase().includes("подписка")) {
+            prize = "Подписка на 6 месяцев"
+        }
         resultDiv.innerHTML = `🎁 Ваш приз:<br><span style="font-size:28px">${prize}</span>`;
 
         // Отправляем результат в Telegram через GAS (fire-and-forget)
-        const body = new URLSearchParams({ phone: userPhone, prize: prize });
-        fetch(GAS_URL, { method: 'POST', body: body, mode: 'no-cors' })
-            .catch(() => {});
+        const body = new URLSearchParams({phone: userPhone, prize: prize});
+        fetch(GAS_URL, {method: 'POST', body: body, mode: 'no-cors'})
+            .catch(() => {
+            });
     }
 </script>
 </body>
