@@ -70,7 +70,7 @@
             border: none;
             border-radius: 50px;
             background: #fff;
-            color: #764ba2;
+            color: #3a9189;
             cursor: pointer;
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
             transition: transform .2s;
@@ -128,13 +128,13 @@
         .modal p {
             font-size: 20px;
             font-weight: 700;
-            color: #764ba2;
+            color: #3a9189;
         }
 
         .close-btn {
             margin-top: 20px;
             padding: 12px 30px;
-            background: #764ba2;
+            background: #3a9189;
             color: white;
             border: none;
             border-radius: 50px;
@@ -144,7 +144,7 @@
         }
 
         .close-btn:hover {
-            background: #5a3a8a;
+            background: #2d7069;
         }
 
         @keyframes fadeIn {
@@ -239,7 +239,30 @@
         '130 000₽',
         '100 000₽',
     ];
-    const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#7CFC00', '#EA4335'];
+    const brandColors = [
+        // '#2E4357', // Основной тёмный (бренд)
+        '#3a9189', // Слегка светлее, но всё ещё тёмный
+        '#4AB7AE', // Акцентный бирюзовый (бренд)
+        '#5ABDB4', // Слегка светлее бирюзы
+        '#88D0C8', // Средне-светлая бирюза
+        '#A7DFD8', // Светлая, но не слишком (хорошо для текста)
+        '#C7E8E2', // Очень светлая, но безопасная
+        '#D6ECE7'  // Почти фоновая, но всё ещё с оттенком
+    ];
+
+    function getRandomColor(excludeColor) {
+        let color;
+        do {
+            color = brandColors[Math.floor(Math.random() * brandColors.length)];
+        } while (color === excludeColor);
+        return color;
+    }
+
+    const colors = [];
+    for (let i = 0; i < prizes.length; i++) {
+        const prevColor = colors[i - 1] || null;
+        colors.push(getRandomColor(prevColor));
+    }
 
     // --- WHEEL INIT ---
     const wheel = new Winwheel({
