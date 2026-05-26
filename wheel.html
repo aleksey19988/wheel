@@ -14,13 +14,12 @@
             margin: 0;
             padding: 20px;
             font-family: 'Roboto', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #fff;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            color: #fff;
             text-align: center;
         }
 
@@ -58,7 +57,7 @@
             height: 0;
             border-top: 18px solid transparent;
             border-bottom: 18px solid transparent;
-            border-right: 28px solid #fff; /* стрелка смотрит ВЛЕВО — на колесо */
+            border-right: 28px solid #fff;
             filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
             z-index: 2;
         }
@@ -86,12 +85,86 @@
             cursor: default;
         }
 
-        #result {
-            margin-top: 20px;
-            font-size: 22px;
+        /* Модальное окно */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .modal-content {
+            background: #fff;
+            border-radius: 20px;
+            padding: 30px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            animation: popIn 0.4s ease-out;
+        }
+
+        .modal img {
+            width: 100%;
+            max-width: 250px;
+            margin: 0 auto 20px;
+            border-radius: 12px;
+            display: block;
+        }
+
+        .modal h2 {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .modal p {
+            font-size: 20px;
             font-weight: 700;
-            min-height: 30px;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            color: #764ba2;
+        }
+
+        .close-btn {
+            margin-top: 20px;
+            padding: 12px 30px;
+            background: #764ba2;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .close-btn:hover {
+            background: #5a3a8a;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes popIn {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
         }
 
         @media (max-width: 480px) {
@@ -108,16 +181,29 @@
 </head>
 <body>
 
+<div class="logo-container">
+    <img src="logo.png" alt="Логотип" style="max-width: 150px; margin: 0 auto 20px; display: block;">
+</div>
+
 <h1>Испытайте удачу! 🎉</h1>
 <p class="sub">Нажмите кнопку, чтобы крутить колесо</p>
 
 <div class="wheel-wrapper">
-    <div class="pointer"></div> <!-- указатель теперь справа -->
+    <div class="pointer"></div>
     <canvas id="wheelCanvas" width="500" height="500"></canvas>
 </div>
 
 <button id="spinBtn">КРУТИТЬ</button>
-<div id="result"></div>
+
+<!-- Модальное окно -->
+<div id="resultModal" class="modal">
+    <div class="modal-content">
+        <img id="modalImage" src="" alt="Дом">
+        <h2>Поздравляем!</h2>
+        <p id="modalPrize"></p>
+        <button class="close-btn" onclick="closeModal()">Закрыть</button>
+    </div>
+</div>
 
 <!-- Зависимости -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/1.20.3/TweenMax.min.js"></script>
@@ -128,14 +214,13 @@
     const userPhone = urlParams.get('phone') || 'unknown';
     const phoneClean = userPhone.replace(/\D/g, '');
 
-    // Если номер не передан или некорректный — убираем колесо и показываем ошибку
     if (userPhone === 'unknown' || phoneClean.length < 10) {
         document.body.innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;text-align:center;padding:20px;">
       <h2>⚠️ Ошибка</h2>
       <p style="margin-bottom:20px;">Сначала введите номер телефона на главной странице.</p>
     </div>`;
-        throw new Error('Invalid phone'); // останавливаем дальнейший JS
+        throw new Error('Invalid phone');
     }
 
     // --- CONFIG ---
@@ -186,19 +271,21 @@
         }
     });
 
-    let tickSound = new Audio(); // можно вставить base64 тик, пока оставим без звука
+    let tickSound = new Audio();
+
     function playTick() {
-        // место для звука тика
     }
 
     const btn = document.getElementById('spinBtn');
-    const resultDiv = document.getElementById('result');
+    const modal = document.getElementById('resultModal');
+    const modalImg = document.getElementById('modalImage');
+    const modalPrize = document.getElementById('modalPrize');
 
     btn.addEventListener('click', () => {
         btn.disabled = true;
-        resultDiv.textContent = '';
+        closeModal(); // на всякий случай
         wheel.stopAnimation(false);
-        wheel.rotationAngle = -90; // начальное положение — справа
+        wheel.rotationAngle = -90;
         wheel.draw();
         wheel.startAnimation();
     });
@@ -206,15 +293,31 @@
     function onPrize(indicatedSegment) {
         let prize = indicatedSegment.text;
         if (prize.toLowerCase().includes("подписка")) {
-            prize = "Подписка на 6 месяцев"
+            prize = "Подписка на 6 месяцев";
+        } else {
+            prize = `Скидка: ${prize}`;
         }
-        resultDiv.innerHTML = `🎁 Ваш приз:<br><span style="font-size:28px">${prize}</span>`;
 
-        // Отправляем результат в Telegram через GAS (fire-and-forget)
+        // Выбираем случайную картинку
+        const images = ['/media/house_1.webp', '/media/house_2.webp'];
+        const randomImage = images[Math.floor(Math.random() * images.length)];
+
+        // Заполняем модалку
+        modalImg.src = randomImage;
+        modalPrize.textContent = prize;
+
+        // Показываем модалку
+        modal.style.display = 'flex';
+
+        // Отправляем результат в Google Apps Script
         const body = new URLSearchParams({phone: userPhone, prize: prize});
         fetch(GAS_URL, {method: 'POST', body: body, mode: 'no-cors'})
             .catch(() => {
             });
+    }
+
+    function closeModal() {
+        modal.style.display = 'none';
     }
 </script>
 </body>
