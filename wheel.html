@@ -224,7 +224,7 @@
     }
 
     // --- CONFIG ---
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbzz08N07nNBuklmPChEoG_8SKiISLRDDNdROAYraen65YMERkstyqgps_LzZii6ThRP/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbz6nkv-vvLM6bdxt-4-khKxsoVdLKuwudcYHALy8sDoXvinXxmFxgR4x2nmWMlsqRlL/exec';
     const prizes = [
         '160 000₽',
         '140 000₽',
@@ -322,7 +322,7 @@
         }
 
         // Выбираем случайную картинку
-        const images = ['/media/house_1.webp', '/media/house_2.webp'];
+        const images = ['media/house_1.webp', 'media/house_2.webp'];
         const randomImage = images[Math.floor(Math.random() * images.length)];
 
         // Заполняем модалку
@@ -335,8 +335,7 @@
         // Отправляем результат в Google Apps Script
         const body = new URLSearchParams({phone: userPhone, prize: prize});
         fetch(GAS_URL, {method: 'POST', body: body, mode: 'no-cors'})
-            .catch(() => {
-            });
+            .catch(() => {});
     }
 
     function closeModal() {

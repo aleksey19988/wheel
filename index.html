@@ -39,6 +39,7 @@
         }
 
         button {
+            position: relative;
             padding: 15px 30px;
             font-size: 16px;
             font-weight: 500;
@@ -49,11 +50,44 @@
             cursor: pointer;
             transition: all 0.3s;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            min-width: 200px;
         }
 
-        button:hover {
+        button:hover:not(:disabled) {
             transform: translateY(-3px);
             box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.9;
+            cursor: default;
+        }
+
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(118, 75, 162, 0.3);
+            border-radius: 50%;
+            border-top-color: #764ba2;
+            animation: spin 1s linear infinite;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            margin-left: -10px;
+            margin-top: -10px;
+        }
+
+        button.loading .spinner {
+            display: block;
+        }
+
+        button.loading .btn-text {
+            visibility: hidden;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         #thankYou {
@@ -65,14 +99,8 @@
         }
 
         @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
@@ -81,27 +109,76 @@
 <h2>Введите номер телефона и испытайте удачу!</h2>
 <form id="luckForm">
     <input type="tel" id="phone" placeholder="+7 (___) ___-__-__" required>
-    <button type="submit">Испытать удачу</button>
+    <button type="submit">
+        <span class="btn-text">Испытать удачу</span>
+        <span class="spinner"></span>
+    </button>
 </form>
 
-<div id="thankYou">Спасибо! Вы участвуете в розыгрыше 🎉</div>
+<div id="thankYou">Спасибо! Переходим к колесу удачи... 🎉</div>
 
-<!-- Маска телефона -->
 <script src="https://unpkg.com/imask"></script>
 
 <script>
-    const scriptURL = 'https://script.google.com/macros/s/AKfycbzz08N07nNBuklmPChEoG_8SKiISLRDDNdROAYraen65YMERkstyqgps_LzZii6ThRP/exec';
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbz6nkv-vvLM6bdxt-4-khKxsoVdLKuwudcYHALy8sDoXvinXxmFxgR4x2nmWMlsqRlL/exec';
     const form = document.getElementById('luckForm');
     const phoneInput = document.getElementById('phone');
     const thankYouMsg = document.getElementById('thankYou');
+    const submitBtn = form.querySelector('button[type="submit"]');
 
-    // Маска телефона
     const maskOptions = {mask: '+{7} (000) 000-00-00'};
     const mask = IMask(phoneInput, maskOptions);
 
-    // Очистка номера
     function cleanPhone(phone) {
         return phone.replace(/[^+\d]/g, '');
+    }
+
+    function setLoading(isLoading) {
+        if (isLoading) {
+            submitBtn.disabled = true;
+            submitBtn.classList.add('loading');
+        } else {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('loading');
+        }
+    }
+
+    function checkPhoneExists(phone, callback) {
+        const callbackName = 'phoneCheck_' + Date.now();
+        let resolved = false;
+
+        window[callbackName] = function(data) {
+            if (resolved) return;
+            resolved = true;
+            callback(data);
+            cleanup();
+        };
+
+        const script = document.createElement('script');
+        const timeoutId = setTimeout(() => {
+            if (!resolved) {
+                resolved = true;
+                callback({status: 'error', msg: 'timeout'});
+                cleanup();
+            }
+        }, 10000);
+
+        script.onerror = () => {
+            if (!resolved) {
+                resolved = true;
+                callback({status: 'error', msg: 'network_error'});
+                cleanup();
+            }
+        };
+
+        function cleanup() {
+            clearTimeout(timeoutId);
+            if (script.parentNode) script.parentNode.removeChild(script);
+            delete window[callbackName];
+        }
+
+        script.src = scriptURL + '?action=check&phone=' + encodeURIComponent(phone) + '&callback=' + callbackName;
+        document.head.appendChild(script);
     }
 
     form.addEventListener('submit', function (e) {
@@ -115,61 +192,41 @@
             return;
         }
 
-        // Проверка на повторный ввод
-        const lastPhone = localStorage.getItem('lastPhone');
-        if (lastPhone === cleanedPhone) {
-            alert('Вы уже участвовали ранее с этим номером. Удачи снова! 😊');
-        }
+        setLoading(true);
 
-        // Сохраняем номер в localStorage
-        localStorage.setItem('lastPhone', cleanedPhone);
+        checkPhoneExists(cleanedPhone, function(response) {
+            setLoading(false);
 
-        // Создаем данные для отправки
-        const formData = new FormData();
-        formData.append('phone', cleanedPhone);
-        formData.append('datetime', new Date().toLocaleString('ru-RU'));
+            if (response && response.status === 'error' && response.msg === 'already_exists') {
+                alert('Этот номер уже участвовал в розыгрыше и получил приз! Повторное участие невозможно 🎁');
+                return;
+            }
 
-        // Отправка в Google Таблицу
-        fetch(scriptURL, {
-            method: 'POST',
-            body: formData,
-            mode: 'no-cors'
+            if (response && response.status === 'error') {
+                alert('Не удалось проверить номер. Попробуйте ещё раз позже.');
+                return;
+            }
+
+            // Номера нет — показываем сообщение и редиректим
+            thankYouMsg.style.display = 'block';
+            setTimeout(() => {
+                window.location.href = 'wheel.html?phone=' + encodeURIComponent(cleanedPhone);
+            }, 1500);
         });
-
-        // Сообщение "Спасибо"
-        thankYouMsg.style.display = 'block';
-
-        setTimeout(() => {
-            // Перенаправляем на СВОЁ колесо с номером телефона в параметре
-            // window.location.href = 'https://aleksey19988.github.io/wheel/wheel.html?phone=' + encodeURIComponent(cleanedPhone);
-            window.location.href = 'wheel.html?phone=' + encodeURIComponent(cleanedPhone);
-        }, 2500);
     });
 </script>
 
 <!-- Yandex.Metrika -->
 <script type="text/javascript">
     (function (m, e, t, r, i, k, a) {
-        m[i] = m[i] || function () {
-            (m[i].a = m[i].a || []).push(arguments)
-        };
+        m[i] = m[i] || function () { (m[i].a = m[i].a || []).push(arguments) };
         m[i].l = 1 * new Date();
-        for (var j = 0; j < document.scripts.length; j++) {
-            if (document.scripts[j].src === r) return;
-        }
+        for (var j = 0; j < document.scripts.length; j++) { if (document.scripts[j].src === r) return; }
         k = e.createElement(t), a = e.getElementsByTagName(t)[0], k.async = 1, k.src = r, a.parentNode.insertBefore(k, a)
-    })
-    (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
-
-    ym(100212341, "init", {
-        clickmap: true,
-        trackLinks: true,
-        accurateTrackBounce: true
-    });
+    })(window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+    ym(100212341, "init", { clickmap: true, trackLinks: true, accurateTrackBounce: true });
 </script>
-<noscript>
-    <div><img src="https://mc.yandex.ru/watch/100212341" style="position:absolute; left:-9999px;" alt=""/></div>
-</noscript>
+<noscript><div><img src="https://mc.yandex.ru/watch/100212341" style="position:absolute; left:-9999px;" alt=""/></div></noscript>
 
 </body>
 </html>
